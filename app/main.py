@@ -1,5 +1,13 @@
+import sys
+from pathlib import Path
+
+project_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
+
 import pandas as pd
 import streamlit as st
+
+from src.cleaning import remove_duplicates, fill_missing_values
 
 st.title("AI Operations Copilot")
 
@@ -16,9 +24,15 @@ if uploaded_file is not None:
 
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
-
     else:
         df = pd.read_excel(uploaded_file)
+
+# Store dataframe only the first time
+    if "df" not in st.session_state:
+        st.session_state.df = df
+
+# From now on, always use the dataframe stored in session state
+    df = st.session_state.df
 
     st.subheader("Data Preview")
 
@@ -44,9 +58,13 @@ if uploaded_file is not None:
 
     missing = (
         df.isnull()
-          .sum()
-          .reset_index()
+            .sum()
+            .reset_index()
     )
+
+    missing.columns = ["Column", "Missing Values"]
+
+    missing = missing[missing["Missing Values"] > 0]
 
     missing.columns = [
        "Column",
@@ -54,3 +72,24 @@ if uploaded_file is not None:
     ]
 
     st.dataframe(missing)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Remove Duplicate Rows"):
+
+            before = len(st.session_state.df)
+
+            st.session_state.df = remove_duplicates(st.session_state.df)
+
+            after = len(st.session_state.df)
+
+            removed = before - after
+
+            st.success(f"Removed {removed} duplicate rows.")
+
+    with col2:
+        if st.button("Fill Missing Values"):
+
+            st.session_state.df = fill_missing_values(st.session_state.df)
+
+            st.success("Missing values filled.")
